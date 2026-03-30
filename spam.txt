@@ -1,1 +1,0 @@
-git remote set-url origin https://bridzy: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@github.com/bridzy/kto-titanic

@@ -1,3 +1,22 @@
+name: Deploy Titanic Chatbot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/titanic/chatbot/**'
+      - '/tests/chatbot/**'
+      - 'k8s/chatbot/**'
+      - '.github/workflows/deploy-chatbot.yml'
+  workflow_dispatch:
+
+env:
+  CHATBOT_IMAGE_NAME: quay.io/{{ cookiecutter.quay_username }}/titanic/chatbot
+  CHATBOT_DEPLOYMENT_NAME: titanic-chatbot
+  CHATBOT_SECRET_NAME: chatbot-secrets
+  CHATBOT_ROUTE_NAME: titanic-chatbot
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  MCP_SERVER_IMAGE_NAME: "quay.io/{{ cookiecutter.quay_username }}/titanic/mcp-server"
+  MCP_SERVER_IMAGE_NAME: "quay.io/bridzyy/titanic/mcp-server"
   MCP_SERVER_DEPLOYMENT_NAME: titanic-mcp-server
   MCP_SERVER_SECRET_NAME: mcp-oauth2-credentials
 
@@ -24,10 +24,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python {{ cookiecutter.__python_version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v3
         with:
-          python-version: "{{ cookiecutter.__python_version }}"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -63,16 +63,6 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
           echo "✅ OAuth2 credentials secret created/updated"
 
-      - name: Delete MCP Server pod to refresh secret
-        run: |
-          POD=$(kubectl get pods -l app="${{ env.MCP_SERVER_DEPLOYMENT_NAME }}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-          if [ -n "$POD" ]; then
-            kubectl delete pod "$POD"
-            echo "✅ Pod ${{ env.MCP_SERVER_DEPLOYMENT_NAME }} supprimé, il va être recréé avec le secret à jour"
-          else
-            echo "⚠️ Aucun pod ${{ env.MCP_SERVER_DEPLOYMENT_NAME }} trouvé à supprimer (premier déploiement)"
-          fi
-
       - name: Configure MCP manifest with OAuth2 domain
         run: |
           sed -i 's|PLACEHOLDER_OAUTH2_DOMAIN|${{ vars.OAUTH2_DOMAIN }}|g' k8s/mcp_server/mcp-server.yaml
@@ -82,7 +72,17 @@ jobs:
         run: |
           kubectl apply -f k8s/mcp_server/mcp-server.yaml
           echo "✅ MCP Server deployment updated"
+
+      - name: Restart MCP Server deployment to refresh secret
+        run: |
+          kubectl rollout restart deployment/"${{ env.MCP_SERVER_DEPLOYMENT_NAME }}"
+          kubectl rollout status deployment/"${{ env.MCP_SERVER_DEPLOYMENT_NAME }}"
+          echo "✅ Deployment ${{ env.MCP_SERVER_DEPLOYMENT_NAME }} restarted"
+
+      - name: Deployment summary
+        run: |
           echo "## 🔧 MCP Server Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "✅ **Status**: Deployed successfully" >> "$GITHUB_STEP_SUMMARY"
           echo "📦 **Image**: ${{ env.MCP_SERVER_IMAGE_NAME }}:latest" >> "$GITHUB_STEP_SUMMARY"
+          echo "🔐 **Secret**: ${{ env.MCP_SERVER_SECRET_NAME }} updated" >> "$GITHUB_STEP_SUMMARY"
